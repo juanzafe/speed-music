@@ -6,6 +6,7 @@ import {
   Image,
   StyleSheet,
   FlatList,
+  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   SafeAreaView,
@@ -135,7 +136,12 @@ export default function App() {
 
         {/* Canción seleccionada + Player */}
         {selectedTrack && (
-          <View style={styles.selectedSection}>
+          <ScrollView
+            style={styles.selectedSection}
+            contentContainerStyle={styles.selectedSectionContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.songInfo}>
               {selectedTrack.image && (
                 <Image
@@ -165,7 +171,7 @@ export default function App() {
             >
               <Text style={styles.backBtnText}>← Buscar otra</Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         )}
       </View>
     </SafeAreaView>
@@ -251,7 +257,10 @@ const styles = StyleSheet.create({
   },
   selectedSection: {
     flex: 1,
+  },
+  selectedSectionContent: {
     gap: 16,
+    paddingBottom: 24,
   },
   songInfo: {
     alignItems: 'center',
