@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   TextInput,
@@ -36,6 +36,11 @@ export default function App() {
   const [results, setResults] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Despertar el backend apenas carga la app
+  useEffect(() => {
+    fetch(API_BASE).catch(() => {});
+  }, []);
 
   async function handleSearch() {
     const trimmed = query.trim();
