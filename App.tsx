@@ -16,10 +16,10 @@ import { Platform } from 'react-native';
 import Player from './src/components/Player';
 import { getSpotifyTrackId } from './src/utils/spotify';
 
-// En web usa localhost; en móvil usa la IP de tu PC en la red local
-const API_BASE = Platform.OS === 'web'
-  ? 'http://localhost:3000'
-  : 'http://192.168.0.12:3000';
+// En producción usa la URL del backend desplegado; en desarrollo usa localhost/IP local
+const API_BASE =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (Platform.OS === 'web' ? 'http://localhost:3000' : 'http://192.168.0.12:3000');
 
 interface Track {
   id: string;
