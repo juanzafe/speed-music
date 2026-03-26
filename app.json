@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "speed-music-app",
-    "slug": "speed-music-app",
+    "slug": "speed-music-noe",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,6 +15,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.speedmusic.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -25,6 +26,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "1872b843-b68c-4dbc-82a1-6587918016f5"
+      }
+    },
+    "owner": "juanzafer"
   }
 }
