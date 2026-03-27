@@ -18,8 +18,7 @@ import { getSpotifyTrackId } from './src/utils/spotify';
 
 // En producción usa la URL del backend desplegado; en desarrollo usa localhost/IP local
 const API_BASE =
-  process.env.EXPO_PUBLIC_API_URL ??
-  (Platform.OS === 'web' ? 'http://localhost:3000' : 'http://192.168.0.12:3000');
+  process.env.EXPO_PUBLIC_API_URL ?? 'https://speed-music-backend.onrender.com';
 
 interface Track {
   id: string;
