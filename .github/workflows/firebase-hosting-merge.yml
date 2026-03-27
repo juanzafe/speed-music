@@ -7,6 +7,14 @@ on:
     branches:
       - main
 jobs:
+  deploy_backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy
+        env:
+          RENDER_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: curl -s "$RENDER_HOOK"
+
   build_and_deploy:
     runs-on: ubuntu-latest
     steps:
