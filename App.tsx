@@ -11,10 +11,13 @@ import {
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
+  Linking,
 } from 'react-native';
 import { Platform } from 'react-native';
 import Player from './src/components/Player';
+import SpotifyWebPlayer from './src/components/SpotifyWebPlayer';
 import { getSpotifyTrackId } from './src/utils/spotify';
+import { useSpotifyAuth } from './src/hooks/useSpotifyAuth';
 
 // En producción usa la URL del backend desplegado; en desarrollo usa localhost/IP local
 const API_BASE =
@@ -35,6 +38,8 @@ export default function App() {
   const [results, setResults] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [loading, setLoading] = useState(false);
+  const [useFullPlayer, setUseFullPlayer] = useState(true);
+  const spotify = useSpotifyAuth();
 
   // Despertar el backend apenas carga la app
   useEffect(() => {
@@ -79,12 +84,12 @@ export default function App() {
   }
 
   function renderTrackItem({ item }: { item: Track }) {
-    const hasPreview = !!item.previewUrl;
+    const canPlay = !!item.previewUrl || spotify.isLoggedIn;
     return (
       <TouchableOpacity
-        style={[styles.resultItem, !hasPreview && styles.resultItemDisabled]}
-        onPress={() => hasPreview && selectTrack(item)}
-        activeOpacity={hasPreview ? 0.7 : 1}
+        style={[styles.resultItem, !canPlay && styles.resultItemDisabled]}
+        onPress={() => canPlay && selectTrack(item)}
+        activeOpacity={canPlay ? 0.7 : 1}
       >
         {item.image && (
           <Image source={{ uri: item.image }} style={styles.thumbnail} />
@@ -96,7 +101,7 @@ export default function App() {
           <Text style={styles.resultArtist} numberOfLines={1}>
             {item.artist}
           </Text>
-          {!hasPreview && (
+          {!item.previewUrl && !spotify.isLoggedIn && (
             <Text style={styles.noPreview}>Sin preview disponible</Text>
           )}
         </View>
@@ -108,7 +113,20 @@ export default function App() {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" />
       <View style={styles.container}>
-        <Text style={styles.header}>⚡ Speed Music</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.header}>⚡ Speed Music</Text>
+          {Platform.OS === 'web' && (
+            spotify.isLoggedIn ? (
+              <TouchableOpacity style={styles.authBtn} onPress={spotify.logout}>
+                <Text style={styles.authBtnText}>Cerrar sesión</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.spotifyLoginBtn} onPress={spotify.login}>
+                <Text style={styles.spotifyLoginBtnText}>🎵 Login Spotify</Text>
+              </TouchableOpacity>
+            )
+          )}
+        </View>
 
         {/* Barra de búsqueda */}
         <View style={styles.searchRow}>
@@ -158,12 +176,49 @@ export default function App() {
               <Text style={styles.album}>{selectedTrack.album}</Text>
             </View>
 
-            {selectedTrack.previewUrl ? (
-              <Player uri={selectedTrack.previewUrl} />
-            ) : (
-              <Text style={styles.noPreviewBig}>
-                Esta canción no tiene preview de audio disponible en Spotify
-              </Text>
+            {/* Full player (web + logged in + premium) */}
+            {spotify.isLoggedIn && Platform.OS === 'web' && useFullPlayer && (
+              <SpotifyWebPlayer
+                accessToken={spotify.accessToken!}
+                trackUri={`spotify:track:${selectedTrack.id}`}
+              />
+            )}
+
+            {/* Toggle between full/preview on web when logged in */}
+            {spotify.isLoggedIn && Platform.OS === 'web' && selectedTrack.previewUrl && (
+              <TouchableOpacity
+                style={styles.toggleBtn}
+                onPress={() => setUseFullPlayer(!useFullPlayer)}
+              >
+                <Text style={styles.toggleBtnText}>
+                  {useFullPlayer
+                    ? '🎚 Cambiar a preview (con control de velocidad)'
+                    : '♫ Cambiar a canción completa'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Preview player with speed control */}
+            {(!spotify.isLoggedIn || Platform.OS !== 'web' || !useFullPlayer) && (
+              selectedTrack.previewUrl ? (
+                <Player uri={selectedTrack.previewUrl} />
+              ) : (
+                <Text style={styles.noPreviewBig}>
+                  {spotify.isLoggedIn
+                    ? 'Usa el reproductor de Spotify arriba'
+                    : 'Sin preview disponible. Inicia sesión en Spotify para escuchar la canción completa.'}
+                </Text>
+              )
+            )}
+
+            {/* Open in Spotify app (mobile) */}
+            {Platform.OS !== 'web' && (
+              <TouchableOpacity
+                style={styles.openSpotifyBtn}
+                onPress={() => Linking.openURL(`https://open.spotify.com/track/${selectedTrack.id}`)}
+              >
+                <Text style={styles.openSpotifyBtnText}>🎵 Abrir en Spotify</Text>
+              </TouchableOpacity>
             )}
 
             <TouchableOpacity
@@ -303,5 +358,58 @@ const styles = StyleSheet.create({
   backBtnText: {
     color: '#1DB954',
     fontSize: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  spotifyLoginBtn: {
+    backgroundColor: '#1DB954',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  spotifyLoginBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  authBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#555',
+  },
+  authBtnText: {
+    color: '#aaa',
+    fontSize: 12,
+  },
+  toggleBtn: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#1DB954',
+  },
+  toggleBtnText: {
+    color: '#1DB954',
+    fontSize: 13,
+  },
+  openSpotifyBtn: {
+    alignSelf: 'center',
+    backgroundColor: '#1DB954',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  openSpotifyBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: 'bold',
   },
 });
