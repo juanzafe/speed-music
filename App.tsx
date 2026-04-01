@@ -12,8 +12,8 @@ import {
   SafeAreaView,
   StatusBar,
   Linking,
+  Platform,
 } from 'react-native';
-import { Platform } from 'react-native';
 import Player from './src/components/Player';
 import SpotifyWebPlayer from './src/components/SpotifyWebPlayer';
 import { getSpotifyTrackId } from './src/utils/spotify';
@@ -192,7 +192,7 @@ export default function App() {
               >
                 <Text style={styles.toggleBtnText}>
                   {useFullPlayer
-                    ? '🎚 Cambiar a preview (con control de velocidad)'
+                    ? '🎚 Cambiar a preview (30s)'
                     : '♫ Cambiar a canción completa'}
                 </Text>
               </TouchableOpacity>

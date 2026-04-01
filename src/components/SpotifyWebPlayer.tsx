@@ -14,6 +14,8 @@ interface Props {
   trackUri: string; // spotify:track:XXXXX
 }
 
+const SPEED_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
 export default function SpotifyWebPlayer({ accessToken, trackUri }: Props) {
   const playerRef = useRef<any>(null);
   const deviceIdRef = useRef<string | null>(null);
@@ -24,6 +26,11 @@ export default function SpotifyWebPlayer({ accessToken, trackUri }: Props) {
   const [positionMs, setPositionMs] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [rate, setRate] = useState(1);
+  const rateRef = useRef(1);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const observerRef = useRef<MutationObserver | null>(null);
+  const rateIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load Spotify SDK and create player
   useEffect(() => {
@@ -128,6 +135,78 @@ export default function SpotifyWebPlayer({ accessToken, trackUri }: Props) {
     setPositionMs(ms);
   }
 
+  // Aplica la velocidad al elemento <audio> de Spotify
+  function applyRateToAudio(audio: HTMLAudioElement, r: number) {
+    if (audio.playbackRate !== r) {
+      audio.playbackRate = r;
+    }
+    (audio as any).preservesPitch = true;
+    (audio as any).webkitPreservesPitch = true;
+  }
+
+  // Busca y hookea el elemento <audio> que crea Spotify SDK
+  function hookAudioElement() {
+    const audios = document.querySelectorAll('audio');
+    // Spotify suele crear un audio element; tomamos el que tenga src
+    let target: HTMLAudioElement | null = null;
+    audios.forEach((el) => {
+      if (el.src || el.srcObject) target = el;
+    });
+    if (!target && audios.length > 0) target = audios[0];
+
+    if (target && target !== audioElRef.current) {
+      audioElRef.current = target;
+      applyRateToAudio(target, rateRef.current);
+
+      // Interceptar ratechange para re-aplicar si Spotify lo resetea
+      target.addEventListener('ratechange', () => {
+        if (target && target.playbackRate !== rateRef.current) {
+          target.playbackRate = rateRef.current;
+        }
+      });
+
+      // También re-aplicar cuando empieza a reproducir
+      target.addEventListener('playing', () => {
+        if (target) applyRateToAudio(target, rateRef.current);
+      });
+    }
+
+    return target;
+  }
+
+  // Observer: detecta cuando Spotify inserta/reemplaza el <audio>
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    observerRef.current = new MutationObserver(() => {
+      hookAudioElement();
+    });
+
+    observerRef.current.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+
+    // Polling cada 300ms como fallback para mantener la velocidad
+    rateIntervalRef.current = setInterval(() => {
+      const audio = audioElRef.current || hookAudioElement();
+      if (audio) applyRateToAudio(audio, rateRef.current);
+    }, 300);
+
+    return () => {
+      observerRef.current?.disconnect();
+      if (rateIntervalRef.current) clearInterval(rateIntervalRef.current);
+    };
+  }, []);
+
+  function changeSpeed(newRate: number) {
+    const clamped = Math.round(newRate * 100) / 100;
+    setRate(clamped);
+    rateRef.current = clamped;
+    const audio = audioElRef.current || hookAudioElement();
+    if (audio) applyRateToAudio(audio, clamped);
+  }
+
   function formatTime(ms: number) {
     const s = Math.floor(ms / 1000);
     return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
@@ -173,6 +252,44 @@ export default function SpotifyWebPlayer({ accessToken, trackUri }: Props) {
         thumbTintColor="#1DB954"
         onSlidingComplete={seekTo}
       />
+
+      {/* Velocidad - Slider */}
+      <Text style={styles.speedLabel}>Velocidad: {rate.toFixed(2)}x</Text>
+
+      <Slider
+        style={{ width: '100%' }}
+        minimumValue={0.5}
+        maximumValue={2}
+        step={0.05}
+        value={rate}
+        minimumTrackTintColor="#1DB954"
+        maximumTrackTintColor="#555"
+        thumbTintColor="#1DB954"
+        onSlidingComplete={changeSpeed}
+      />
+
+      {/* Velocidad - Presets */}
+      <View style={styles.presetRow}>
+        {SPEED_PRESETS.map((preset) => (
+          <TouchableOpacity
+            key={preset}
+            style={[
+              styles.presetBtn,
+              Math.abs(rate - preset) < 0.01 && styles.presetBtnActive,
+            ]}
+            onPress={() => changeSpeed(preset)}
+          >
+            <Text
+              style={[
+                styles.presetText,
+                Math.abs(rate - preset) < 0.01 && styles.presetTextActive,
+              ]}
+            >
+              {preset}x
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
   );
 }
@@ -222,5 +339,37 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 14,
     color: '#ccc',
+  },
+  speedLabel: {
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1DB954',
+    marginTop: 4,
+  },
+  presetRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  presetBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#444',
+  },
+  presetBtnActive: {
+    backgroundColor: '#1DB954',
+    borderColor: '#1DB954',
+  },
+  presetText: {
+    color: '#ccc',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  presetTextActive: {
+    color: '#000',
   },
 });
