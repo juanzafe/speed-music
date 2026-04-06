@@ -93,12 +93,33 @@ export default function App() {
   async function handleDownloadFull(trackId: string) {
     setDownloading(true);
     try {
-      // Ask backend to download the song (yt-dlp); waits until ready
+      // Kick off background download (returns immediately)
       const prepareRes = await fetch(`${API_BASE}/download/${trackId}/prepare`);
       if (!prepareRes.ok) throw new Error('Prepare failed');
 
-      // Song is ready — point the Player to the stream URL
-      setFullAudioUri(`${API_BASE}/download/${trackId}`);
+      const prepareData = await prepareRes.json();
+      if (prepareData.status === 'ready') {
+        // Already cached — play immediately
+        setFullAudioUri(`${API_BASE}/download/${trackId}`);
+        return;
+      }
+
+      // Poll /status every 3 seconds until ready (max 2 minutes)
+      const maxAttempts = 40;
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const statusRes = await fetch(`${API_BASE}/download/${trackId}/status`);
+        if (!statusRes.ok) continue;
+        const statusData = await statusRes.json();
+        if (statusData.status === 'ready') {
+          setFullAudioUri(`${API_BASE}/download/${trackId}`);
+          return;
+        }
+        if (statusData.status === 'error') {
+          throw new Error(statusData.error || 'Error en descarga');
+        }
+      }
+      throw new Error('Timeout: la descarga tardó demasiado');
     } catch (e) {
       console.error(e);
       alert('Error descargando canción completa');
