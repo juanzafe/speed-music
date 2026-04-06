@@ -90,11 +90,12 @@ export default function App() {
   async function handleDownloadFull(trackId: string) {
     setDownloading(true);
     try {
-      // Trigger the download on the backend (the GET will also serve the file)
-      const url = `${API_BASE}/download/${trackId}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Download failed');
-      setFullAudioUri(url);
+      // Ask backend to download the song (yt-dlp); waits until ready
+      const prepareRes = await fetch(`${API_BASE}/download/${trackId}/prepare`);
+      if (!prepareRes.ok) throw new Error('Prepare failed');
+
+      // Song is ready — point the Player to the stream URL
+      setFullAudioUri(`${API_BASE}/download/${trackId}`);
     } catch (e) {
       console.error(e);
       alert('Error descargando canción completa');
