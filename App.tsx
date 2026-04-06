@@ -39,6 +39,8 @@ export default function App() {
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [loading, setLoading] = useState(false);
   const [useFullPlayer, setUseFullPlayer] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+  const [fullAudioUri, setFullAudioUri] = useState<string | null>(null);
   const spotify = useSpotifyAuth();
 
   // Despertar el backend apenas carga la app
@@ -81,6 +83,24 @@ export default function App() {
   function selectTrack(track: Track) {
     setSelectedTrack(track);
     setResults([]);
+    setFullAudioUri(null);
+    setDownloading(false);
+  }
+
+  async function handleDownloadFull(trackId: string) {
+    setDownloading(true);
+    try {
+      // Trigger the download on the backend (the GET will also serve the file)
+      const url = `${API_BASE}/download/${trackId}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Download failed');
+      setFullAudioUri(url);
+    } catch (e) {
+      console.error(e);
+      alert('Error descargando canción completa');
+    } finally {
+      setDownloading(false);
+    }
   }
 
   function renderTrackItem({ item }: { item: Track }) {
@@ -176,39 +196,38 @@ export default function App() {
               <Text style={styles.album}>{selectedTrack.album}</Text>
             </View>
 
-            {/* Full player (web + logged in + premium) */}
-            {spotify.isLoggedIn && Platform.OS === 'web' && useFullPlayer && (
-              <SpotifyWebPlayer
-                accessToken={spotify.accessToken!}
-                trackUri={`spotify:track:${selectedTrack.id}`}
-              />
-            )}
+            {/* Full song via yt-dlp download */}
+            {fullAudioUri ? (
+              <Player uri={fullAudioUri} />
+            ) : (
+              <>
+                {/* Download full song button */}
+                <TouchableOpacity
+                  style={[styles.downloadBtn, downloading && { opacity: 0.5 }]}
+                  onPress={() => !downloading && handleDownloadFull(selectedTrack.id)}
+                  disabled={downloading}
+                >
+                  {downloading ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.downloadBtnText}>⬇️ Descargar canción completa</Text>
+                  )}
+                </TouchableOpacity>
 
-            {/* Toggle between full/preview on web when logged in */}
-            {spotify.isLoggedIn && Platform.OS === 'web' && selectedTrack.previewUrl && (
-              <TouchableOpacity
-                style={styles.toggleBtn}
-                onPress={() => setUseFullPlayer(!useFullPlayer)}
-              >
-                <Text style={styles.toggleBtnText}>
-                  {useFullPlayer
-                    ? '🎚 Cambiar a preview (30s)'
-                    : '♫ Cambiar a canción completa'}
-                </Text>
-              </TouchableOpacity>
-            )}
+                {/* Preview player as fallback while not downloaded */}
+                {selectedTrack.previewUrl && (
+                  <>
+                    <Text style={styles.previewHint}>Preview (30s):</Text>
+                    <Player uri={selectedTrack.previewUrl} />
+                  </>
+                )}
 
-            {/* Preview player with speed control */}
-            {(!spotify.isLoggedIn || Platform.OS !== 'web' || !useFullPlayer) && (
-              selectedTrack.previewUrl ? (
-                <Player uri={selectedTrack.previewUrl} />
-              ) : (
-                <Text style={styles.noPreviewBig}>
-                  {spotify.isLoggedIn
-                    ? 'Usa el reproductor de Spotify arriba'
-                    : 'Sin preview disponible. Inicia sesión en Spotify para escuchar la canción completa.'}
-                </Text>
-              )
+                {!selectedTrack.previewUrl && (
+                  <Text style={styles.noPreviewBig}>
+                    Pulsa el botón de arriba para descargar la canción completa
+                  </Text>
+                )}
+              </>
             )}
 
             {/* Open in Spotify app (mobile) */}
@@ -411,5 +430,25 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  downloadBtn: {
+    alignSelf: 'center',
+    backgroundColor: '#e67e22',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  downloadBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  previewHint: {
+    color: '#888',
+    fontSize: 12,
+    textAlign: 'center',
   },
 });

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Slider from '@react-native-community/slider';
 
-const SPEED_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const SPEED_PRESETS = [0.5, 0.75, 0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.2, 1.25, 1.5, 2];
 
 export default function Player({ uri }: { uri: string }) {
   const soundRef = useRef<Audio.Sound | null>(null);
