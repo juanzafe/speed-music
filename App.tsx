@@ -20,8 +20,11 @@ import { getSpotifyTrackId } from './src/utils/spotify';
 import { useSpotifyAuth } from './src/hooks/useSpotifyAuth';
 
 // En producción usa la URL del backend desplegado; en desarrollo usa localhost/IP local
-const API_BASE =
-  process.env.EXPO_PUBLIC_API_URL ?? 'https://speed-music-backend.onrender.com';
+const RENDER_URL = 'https://speed-music-backend.onrender.com';
+const isLocal = typeof window !== 'undefined' && window.location?.hostname === 'localhost';
+const API_BASE = isLocal
+  ? (process.env.EXPO_PUBLIC_API_URL ?? RENDER_URL)
+  : RENDER_URL;
 
 interface Track {
   id: string;

@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Platform } from 'react-native';
 
-const API_BASE =
-  process.env.EXPO_PUBLIC_API_URL ?? 'https://speed-music-backend.onrender.com';
+const RENDER_URL = 'https://speed-music-backend.onrender.com';
+const isLocal = typeof window !== 'undefined' && window.location?.hostname === 'localhost';
+const API_BASE = isLocal
+  ? (process.env.EXPO_PUBLIC_API_URL ?? RENDER_URL)
+  : RENDER_URL;
 
 export interface SpotifyAuth {
   accessToken: string | null;
