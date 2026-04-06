@@ -86,6 +86,10 @@ export default function App() {
   function selectTrack(track: Track) {
     setSelectedTrack(track);
     setResults([]);
+    // Revoke previous blob URL to free memory
+    if (fullAudioUri && fullAudioUri.startsWith('blob:')) {
+      URL.revokeObjectURL(fullAudioUri);
+    }
     setFullAudioUri(null);
     setDownloading(false);
   }
@@ -98,28 +102,30 @@ export default function App() {
       if (!prepareRes.ok) throw new Error('Prepare failed');
 
       const prepareData = await prepareRes.json();
-      if (prepareData.status === 'ready') {
-        // Already cached — play immediately
-        setFullAudioUri(`${API_BASE}/download/${trackId}`);
-        return;
+
+      // Poll /status until ready (unless already cached)
+      if (prepareData.status !== 'ready') {
+        const maxAttempts = 40;
+        let ready = false;
+        for (let i = 0; i < maxAttempts; i++) {
+          await new Promise((r) => setTimeout(r, 3000));
+          const statusRes = await fetch(`${API_BASE}/download/${trackId}/status`);
+          if (!statusRes.ok) continue;
+          const statusData = await statusRes.json();
+          if (statusData.status === 'ready') { ready = true; break; }
+          if (statusData.status === 'error') {
+            throw new Error(statusData.error || 'Error en descarga');
+          }
+        }
+        if (!ready) throw new Error('Timeout: la descarga tardó demasiado');
       }
 
-      // Poll /status every 3 seconds until ready (max 2 minutes)
-      const maxAttempts = 40;
-      for (let i = 0; i < maxAttempts; i++) {
-        await new Promise((r) => setTimeout(r, 3000));
-        const statusRes = await fetch(`${API_BASE}/download/${trackId}/status`);
-        if (!statusRes.ok) continue;
-        const statusData = await statusRes.json();
-        if (statusData.status === 'ready') {
-          setFullAudioUri(`${API_BASE}/download/${trackId}`);
-          return;
-        }
-        if (statusData.status === 'error') {
-          throw new Error(statusData.error || 'Error en descarga');
-        }
-      }
-      throw new Error('Timeout: la descarga tardó demasiado');
+      // Download the full MP3 as a blob to avoid Render's 30s stream timeout
+      const audioRes = await fetch(`${API_BASE}/download/${trackId}`);
+      if (!audioRes.ok) throw new Error('Error descargando audio');
+      const blob = await audioRes.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      setFullAudioUri(blobUrl);
     } catch (e) {
       console.error(e);
       alert('Error descargando canción completa');
