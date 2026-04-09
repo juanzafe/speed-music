@@ -168,16 +168,28 @@ export default function App() {
         return;
       }
 
-      // Last resort: download whatever the server has (even 30s preview)
-      console.log('Piped also failed, trying server file as-is...');
+      // Last resort: wait for server download to finish, then fetch
+      console.log('Piped also failed, waiting for server to finish...');
       try {
-        const audioRes = await fetch(`${API_BASE}/download/${trackId}`);
-        if (audioRes.ok) {
-          const blob = await audioRes.blob();
-          if (blob.size > 10_000) {
-            setFullAudioUri(URL.createObjectURL(blob));
-            return;
+        // Poll status until ready (server might still be downloading)
+        for (let i = 0; i < 30; i++) {
+          const statusRes = await fetch(`${API_BASE}/download/${trackId}/status`);
+          if (statusRes.ok) {
+            const d = await statusRes.json();
+            if (d.status === 'ready' && d.size > 10_000) {
+              const audioRes = await fetch(`${API_BASE}/download/${trackId}`);
+              if (audioRes.ok) {
+                const blob = await audioRes.blob();
+                if (blob.size > 10_000) {
+                  setFullAudioUri(URL.createObjectURL(blob));
+                  return;
+                }
+              }
+              break;
+            }
+            if (d.status === 'error' || d.status === 'none') break;
           }
+          await new Promise((r) => setTimeout(r, 3000));
         }
       } catch {}
 
