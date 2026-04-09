@@ -4,6 +4,7 @@ import {
   TextInput,
   Text,
   Image,
+  ImageBackground,
   StyleSheet,
   FlatList,
   ScrollView,
@@ -15,9 +16,7 @@ import {
   Platform,
 } from 'react-native';
 import Player from './src/components/Player';
-import SpotifyWebPlayer from './src/components/SpotifyWebPlayer';
 import { getSpotifyTrackId } from './src/utils/spotify';
-import { useSpotifyAuth } from './src/hooks/useSpotifyAuth';
 
 // En producción usa la URL del backend desplegado; en desarrollo usa localhost/IP local
 const RENDER_URL = 'https://speed-music-backend.onrender.com';
@@ -41,10 +40,8 @@ export default function App() {
   const [results, setResults] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [loading, setLoading] = useState(false);
-  const [useFullPlayer, setUseFullPlayer] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [fullAudioUri, setFullAudioUri] = useState<string | null>(null);
-  const spotify = useSpotifyAuth();
 
   // Despertar el backend apenas carga la app
   useEffect(() => {
@@ -123,15 +120,38 @@ export default function App() {
       const { videoId } = await vidRes.json();
       if (!videoId) return null;
 
-      console.log('Piped client-side fallback: videoId =', videoId);
+      console.log('Client-side fallback: videoId =', videoId);
 
-      // Try a few Piped instances from the browser
+      // Try Invidious instances first (proxied via latest_version?local=true)
+      const invidiousInstances = [
+        'https://inv.thepixora.com',
+        'https://invidious.materialio.us',
+        'https://yewtu.be',
+        'https://inv.tux.pizza',
+        'https://invidious.privacyredirect.com',
+      ];
+
+      for (const instance of invidiousInstances) {
+        try {
+          console.log(`Trying Invidious: ${instance}`);
+          // itag 140 = m4a 128kbps
+          const url = `${instance}/latest_version?id=${videoId}&itag=140&local=true`;
+          const audioRes = await fetch(url, { redirect: 'follow' });
+          if (!audioRes.ok) { console.log(`  ${instance} returned ${audioRes.status}`); continue; }
+          const blob = await audioRes.blob();
+          console.log(`  Downloaded: ${blob.size} bytes`);
+          if (blob.size > 500_000) {
+            return URL.createObjectURL(blob);
+          }
+          console.log(`  Too small, skipping`);
+        } catch (e: any) { console.warn(`  Invidious ${instance} error:`, e.message); continue; }
+      }
+
+      // Piped as last resort
       const pipedInstances = [
         'https://pipedapi.kavin.rocks',
-        'https://api.piped.private.coffee',
         'https://pipedapi.leptons.xyz',
         'https://pipedapi.adminforge.de',
-        'https://api.piped.yt',
       ];
 
       for (const instance of pipedInstances) {
@@ -163,7 +183,7 @@ export default function App() {
           console.log(`  Blob too small, skipping`);
         } catch (e: any) { console.warn(`  Piped ${instance} error:`, e.message); continue; }
       }
-    } catch (e) { console.warn('Piped fallback failed:', e); }
+    } catch (e) { console.warn('Client-side fallback failed:', e); }
     return null;
   }
 
@@ -281,12 +301,11 @@ export default function App() {
   }
 
   function renderTrackItem({ item }: { item: Track }) {
-    const canPlay = !!item.previewUrl || spotify.isLoggedIn;
     return (
       <TouchableOpacity
-        style={[styles.resultItem, !canPlay && styles.resultItemDisabled]}
-        onPress={() => canPlay && selectTrack(item)}
-        activeOpacity={canPlay ? 0.7 : 1}
+        style={styles.resultItem}
+        onPress={() => selectTrack(item)}
+        activeOpacity={0.7}
       >
         {item.image && (
           <Image source={{ uri: item.image }} style={styles.thumbnail} />
@@ -298,9 +317,6 @@ export default function App() {
           <Text style={styles.resultArtist} numberOfLines={1}>
             {item.artist}
           </Text>
-          {!item.previewUrl && !spotify.isLoggedIn && (
-            <Text style={styles.noPreview}>Sin preview disponible</Text>
-          )}
         </View>
       </TouchableOpacity>
     );
@@ -309,21 +325,15 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" />
-      <View style={styles.container}>
-        <View style={styles.headerRow}>
+      <ImageBackground
+        source={require('./assets/bg.webp')}
+        style={styles.bgImage}
+        imageStyle={styles.bgImageInner}
+        resizeMode="cover"
+      >
+        <View style={styles.bgOverlay} />
+        <View style={styles.container}>
           <Text style={styles.header}>⚡ Speed Music</Text>
-          {Platform.OS === 'web' && (
-            spotify.isLoggedIn ? (
-              <TouchableOpacity style={styles.authBtn} onPress={spotify.logout}>
-                <Text style={styles.authBtnText}>Cerrar sesión</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={styles.spotifyLoginBtn} onPress={spotify.login}>
-                <Text style={styles.spotifyLoginBtnText}>🎵 Login Spotify</Text>
-              </TouchableOpacity>
-            )
-          )}
-        </View>
 
         {/* Barra de búsqueda */}
         <View style={styles.searchRow}>
@@ -428,7 +438,8 @@ export default function App() {
             </TouchableOpacity>
           </ScrollView>
         )}
-      </View>
+        </View>
+      </ImageBackground>
     </SafeAreaView>
   );
 }
@@ -437,6 +448,20 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: '#121212',
+  },
+  bgImage: {
+    flex: 1,
+  },
+  bgImageInner: {
+    opacity: 0.4,
+    resizeMode: 'cover',
+    width: '100%',
+    height: '100%',
+    ...(Platform.OS === 'web' ? { filter: 'blur(8px)', transform: [{ scale: 1.05 }], objectFit: 'cover', objectPosition: 'center' } : {}),
+  },
+  bgOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
   container: {
     flex: 1,
@@ -485,9 +510,6 @@ const styles = StyleSheet.create({
     borderBottomColor: '#222',
     gap: 12,
   },
-  resultItemDisabled: {
-    opacity: 0.4,
-  },
   thumbnail: {
     width: 50,
     height: 50,
@@ -504,11 +526,6 @@ const styles = StyleSheet.create({
   resultArtist: {
     color: '#aaa',
     fontSize: 13,
-  },
-  noPreview: {
-    color: '#e74c3c',
-    fontSize: 11,
-    marginTop: 2,
   },
   selectedSection: {
     flex: 1,
@@ -555,35 +572,7 @@ const styles = StyleSheet.create({
     color: '#1DB954',
     fontSize: 16,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 8,
-  },
-  spotifyLoginBtn: {
-    backgroundColor: '#1DB954',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  spotifyLoginBtnText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  authBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#555',
-  },
-  authBtnText: {
-    color: '#aaa',
-    fontSize: 12,
-  },
+
   toggleBtn: {
     alignSelf: 'center',
     paddingVertical: 8,
