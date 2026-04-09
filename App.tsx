@@ -94,44 +94,148 @@ export default function App() {
     setDownloading(false);
   }
 
+  // Piped instances for client-side YouTube audio download
+  const PIPED_INSTANCES = [
+    'https://api.piped.private.coffee',
+    'https://api.piped.projectsegfau.lt',
+  ];
+
+  async function tryPipedDownload(trackId: string): Promise<string | null> {
+    try {
+      // Get YouTube video ID from backend (search works from datacenter)
+      const vidRes = await fetch(`${API_BASE}/download/${trackId}/video-id`);
+      if (!vidRes.ok) return null;
+      const { videoId } = await vidRes.json();
+      if (!videoId) return null;
+
+      console.log('Piped fallback: videoId =', videoId);
+
+      // Try each Piped instance from the browser (user's residential IP)
+      for (const instance of PIPED_INSTANCES) {
+        try {
+          console.log(`Trying Piped instance: ${instance}`);
+          const streamRes = await fetch(`${instance}/streams/${videoId}`);
+          if (!streamRes.ok) { console.log(`  ${instance} returned ${streamRes.status}`); continue; }
+          const streamData = await streamRes.json();
+
+          // Prefer mp4 audio (broader compatibility), then any audio
+          const audioStreams = (streamData.audioStreams || [])
+            .filter((s: any) => s.url && s.mimeType?.startsWith('audio/'));
+          const mp4Streams = audioStreams
+            .filter((s: any) => s.mimeType?.includes('mp4'))
+            .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
+          const allSorted = audioStreams
+            .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
+          const best = mp4Streams[0] || allSorted[0];
+
+          if (!best?.url) { console.log(`  No audio streams from ${instance}`); continue; }
+          console.log(`  Found stream: ${best.mimeType} ${best.bitrate}bps`);
+
+          // Download audio blob from Piped proxy
+          const audioRes = await fetch(best.url);
+          if (!audioRes.ok) { console.log(`  Audio fetch failed: ${audioRes.status}`); continue; }
+          const blob = await audioRes.blob();
+          console.log(`  Downloaded blob: ${blob.size} bytes`);
+          if (blob.size > 500_000) {
+            return URL.createObjectURL(blob);
+          }
+          console.log(`  Blob too small, skipping`);
+        } catch (e: any) { console.warn(`  Piped ${instance} error:`, e.message); continue; }
+      }
+    } catch (e) { console.warn('Piped fallback failed:', e); }
+    return null;
+  }
+
   async function handleDownloadFull(trackId: string) {
     setDownloading(true);
     try {
-      // Kick off background download (returns immediately)
-      const prepareRes = await fetch(`${API_BASE}/download/${trackId}/prepare`);
-      if (!prepareRes.ok) throw new Error('Prepare failed');
+      // Start server-side download AND Piped lookup in parallel
+      const serverPromise = tryServerDownload(trackId);
+      const pipedPromise = tryPipedDownload(trackId);
 
-      const prepareData = await prepareRes.json();
-
-      // Poll /status until ready (unless already cached)
-      if (prepareData.status !== 'ready') {
-        const maxAttempts = 40;
-        let ready = false;
-        for (let i = 0; i < maxAttempts; i++) {
-          await new Promise((r) => setTimeout(r, 3000));
-          const statusRes = await fetch(`${API_BASE}/download/${trackId}/status`);
-          if (!statusRes.ok) continue;
-          const statusData = await statusRes.json();
-          if (statusData.status === 'ready') { ready = true; break; }
-          if (statusData.status === 'error') {
-            throw new Error(statusData.error || 'Error en descarga');
-          }
-        }
-        if (!ready) throw new Error('Timeout: la descarga tardó demasiado');
+      // Wait for server first (usually faster if cached)
+      const serverUrl = await serverPromise;
+      if (serverUrl) {
+        setFullAudioUri(serverUrl);
+        return;
       }
 
-      // Download the full MP3 as a blob to avoid Render's 30s stream timeout
-      const audioRes = await fetch(`${API_BASE}/download/${trackId}`);
-      if (!audioRes.ok) throw new Error('Error descargando audio');
-      const blob = await audioRes.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      setFullAudioUri(blobUrl);
+      // Server failed or gave a short preview — wait for Piped
+      console.log('Server download insufficient, waiting for Piped...');
+      const pipedUrl = await pipedPromise;
+      if (pipedUrl) {
+        setFullAudioUri(pipedUrl);
+        return;
+      }
+
+      // Last resort: download whatever the server has (even 30s preview)
+      console.log('Piped also failed, trying server file as-is...');
+      try {
+        const audioRes = await fetch(`${API_BASE}/download/${trackId}`);
+        if (audioRes.ok) {
+          const blob = await audioRes.blob();
+          if (blob.size > 10_000) {
+            setFullAudioUri(URL.createObjectURL(blob));
+            return;
+          }
+        }
+      } catch {}
+
+      throw new Error('No se pudo descargar');
     } catch (e) {
       console.error(e);
       alert('Error descargando canción completa');
     } finally {
       setDownloading(false);
     }
+  }
+
+  /** Try server-side download: prepare → poll → download blob. Returns blob URL if full song. */
+  async function tryServerDownload(trackId: string): Promise<string | null> {
+    try {
+      const prepareRes = await fetch(`${API_BASE}/download/${trackId}/prepare`);
+      if (!prepareRes.ok) return null;
+
+      let prepareData;
+      try { prepareData = await prepareRes.json(); } catch { return null; }
+
+      // Poll until ready
+      let fileSize = 0;
+      if (prepareData.status === 'ready') {
+        // Already cached — get size
+        try {
+          const statusRes = await fetch(`${API_BASE}/download/${trackId}/status`);
+          if (statusRes.ok) {
+            const d = await statusRes.json();
+            fileSize = d.size || 0;
+          }
+        } catch {}
+      } else {
+        // Wait for download to complete
+        for (let i = 0; i < 40; i++) {
+          await new Promise((r) => setTimeout(r, 3000));
+          try {
+            const statusRes = await fetch(`${API_BASE}/download/${trackId}/status`);
+            if (!statusRes.ok) continue;
+            const d = await statusRes.json();
+            if (d.status === 'ready') { fileSize = d.size || 0; break; }
+            if (d.status === 'error') { console.warn('Server download error:', d.error); return null; }
+          } catch { continue; }
+        }
+      }
+
+      // Only use server file if it's a full song (>500KB)
+      if (fileSize > 500_000) {
+        const audioRes = await fetch(`${API_BASE}/download/${trackId}`);
+        if (audioRes.ok) {
+          const blob = await audioRes.blob();
+          if (blob.size > 500_000) {
+            return URL.createObjectURL(blob);
+          }
+        }
+      }
+    } catch (e) { console.warn('Server download failed:', e); }
+    return null;
   }
 
   function renderTrackItem({ item }: { item: Track }) {
