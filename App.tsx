@@ -94,11 +94,26 @@ export default function App() {
     setDownloading(false);
   }
 
-  // Piped instances for client-side YouTube audio download
-  const PIPED_INSTANCES = [
-    'https://api.piped.private.coffee',
-    'https://api.piped.projectsegfau.lt',
-  ];
+  /** Try streaming audio via backend proxy (Piped stream proxied through our server - no CORS issues) */
+  async function tryStreamProxy(trackId: string): Promise<string | null> {
+    try {
+      console.log('Trying stream proxy...');
+      const audioRes = await fetch(`${API_BASE}/download/${trackId}/stream`);
+      if (!audioRes.ok) {
+        console.log(`Stream proxy returned ${audioRes.status}`);
+        return null;
+      }
+      const blob = await audioRes.blob();
+      console.log(`Stream proxy blob: ${blob.size} bytes`);
+      if (blob.size > 500_000) {
+        return URL.createObjectURL(blob);
+      }
+      console.log('Stream proxy blob too small');
+    } catch (e: any) {
+      console.warn('Stream proxy failed:', e.message);
+    }
+    return null;
+  }
 
   async function tryPipedDownload(trackId: string): Promise<string | null> {
     try {
@@ -108,17 +123,24 @@ export default function App() {
       const { videoId } = await vidRes.json();
       if (!videoId) return null;
 
-      console.log('Piped fallback: videoId =', videoId);
+      console.log('Piped client-side fallback: videoId =', videoId);
 
-      // Try each Piped instance from the browser (user's residential IP)
-      for (const instance of PIPED_INSTANCES) {
+      // Try a few Piped instances from the browser
+      const pipedInstances = [
+        'https://pipedapi.kavin.rocks',
+        'https://api.piped.private.coffee',
+        'https://pipedapi.leptons.xyz',
+        'https://pipedapi.adminforge.de',
+        'https://api.piped.yt',
+      ];
+
+      for (const instance of pipedInstances) {
         try {
           console.log(`Trying Piped instance: ${instance}`);
           const streamRes = await fetch(`${instance}/streams/${videoId}`);
           if (!streamRes.ok) { console.log(`  ${instance} returned ${streamRes.status}`); continue; }
           const streamData = await streamRes.json();
 
-          // Prefer mp4 audio (broader compatibility), then any audio
           const audioStreams = (streamData.audioStreams || [])
             .filter((s: any) => s.url && s.mimeType?.startsWith('audio/'));
           const mp4Streams = audioStreams
@@ -131,7 +153,6 @@ export default function App() {
           if (!best?.url) { console.log(`  No audio streams from ${instance}`); continue; }
           console.log(`  Found stream: ${best.mimeType} ${best.bitrate}bps`);
 
-          // Download audio blob from Piped proxy
           const audioRes = await fetch(best.url);
           if (!audioRes.ok) { console.log(`  Audio fetch failed: ${audioRes.status}`); continue; }
           const blob = await audioRes.blob();
@@ -149,9 +170,11 @@ export default function App() {
   async function handleDownloadFull(trackId: string) {
     setDownloading(true);
     try {
-      // Start server-side download AND Piped lookup in parallel
+      // Strategy: try server download + stream proxy in parallel
+      // Server download: yt-dlp (works on residential IPs)
+      // Stream proxy: Piped via backend proxy (works from datacenter)
       const serverPromise = tryServerDownload(trackId);
-      const pipedPromise = tryPipedDownload(trackId);
+      const streamProxyPromise = tryStreamProxy(trackId);
 
       // Wait for server first (usually faster if cached)
       const serverUrl = await serverPromise;
@@ -160,19 +183,26 @@ export default function App() {
         return;
       }
 
-      // Server failed or gave a short preview — wait for Piped
-      console.log('Server download insufficient, waiting for Piped...');
-      const pipedUrl = await pipedPromise;
+      // Server failed — wait for stream proxy
+      console.log('Server download insufficient, waiting for stream proxy...');
+      const streamUrl = await streamProxyPromise;
+      if (streamUrl) {
+        setFullAudioUri(streamUrl);
+        return;
+      }
+
+      // Both failed — try client-side Piped as last resort
+      console.log('Stream proxy failed, trying client-side Piped...');
+      const pipedUrl = await tryPipedDownload(trackId);
       if (pipedUrl) {
         setFullAudioUri(pipedUrl);
         return;
       }
 
-      // Last resort: wait for server download to finish, then fetch
-      console.log('Piped also failed, waiting for server to finish...');
+      // Final fallback: poll server status (might still be downloading in background)
+      console.log('All methods failed, polling server...');
       try {
-        // Poll status until ready (server might still be downloading)
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < 20; i++) {
           const statusRes = await fetch(`${API_BASE}/download/${trackId}/status`);
           if (statusRes.ok) {
             const d = await statusRes.json();
@@ -196,7 +226,7 @@ export default function App() {
       throw new Error('No se pudo descargar');
     } catch (e) {
       console.error(e);
-      alert('Error descargando canción completa');
+      alert('Error descargando canción completa. Intenta con otra canción.');
     } finally {
       setDownloading(false);
     }
