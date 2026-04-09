@@ -10,7 +10,9 @@ const pwaTags = `
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Speed Music">
-    <link rel="apple-touch-icon" href="/assets/icon.png">`;
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/assets/icon-152.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="/assets/icon-167.png">`;
 
 html = html.replace('</head>', pwaTags + '\n  </head>');
 
