@@ -453,11 +453,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bgImageInner: {
-    opacity: 0.4,
+    opacity: 0.55,
     resizeMode: 'cover',
     width: '100%',
     height: '100%',
-    ...(Platform.OS === 'web' ? { filter: 'blur(8px)', transform: [{ scale: 1.05 }], objectFit: 'cover', objectPosition: 'center' } : {}),
+    ...(Platform.OS === 'web' ? { filter: 'blur(3px)', transform: [{ scale: 1.02 }], objectFit: 'cover', objectPosition: 'center' } : {}),
   },
   bgOverlay: {
     ...StyleSheet.absoluteFillObject,
