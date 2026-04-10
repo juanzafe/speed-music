@@ -483,10 +483,14 @@ export default function App() {
               style={styles.backBtn}
               onPress={() => {
                 setSelectedTrack(null);
-                setResults([]);
+                if (fullAudioUri && fullAudioUri.startsWith('blob:')) {
+                  URL.revokeObjectURL(fullAudioUri);
+                }
+                setFullAudioUri(null);
+                setDownloading(false);
               }}
             >
-              <Text style={styles.backBtnText}>← Buscar otra</Text>
+              <Text style={styles.backBtnText}>← Volver</Text>
             </TouchableOpacity>
           </ScrollView>
         )}
