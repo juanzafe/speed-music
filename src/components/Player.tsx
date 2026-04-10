@@ -110,7 +110,7 @@ export default function Player({ uri }: { uri: string }) {
     <View style={styles.container}>
       {/* Play/Pause */}
       <TouchableOpacity style={styles.playBtn} onPress={togglePlay}>
-        <Text style={styles.playBtnText}>{isPlaying ? '⏸' : '▶️'}</Text>
+        <Text style={styles.playBtnText}>{isPlaying ? '⏸' : '▶'}</Text>
       </TouchableOpacity>
 
       {/* Progreso */}
@@ -123,14 +123,14 @@ export default function Player({ uri }: { uri: string }) {
         minimumValue={0}
         maximumValue={durationMs || 1}
         value={positionMs}
-        minimumTrackTintColor="#1DB954"
-        maximumTrackTintColor="#555"
-        thumbTintColor="#1DB954"
+        minimumTrackTintColor="#8B9DC3"
+        maximumTrackTintColor="rgba(255,255,255,0.12)"
+        thumbTintColor="#B8C8E0"
         onSlidingComplete={seekTo}
       />
 
       {/* Velocidad - Slider */}
-      <Text style={styles.speedLabel}>Velocidad: {rate.toFixed(2)}x</Text>
+      <Text style={styles.speedLabel}>Velocidad · {rate.toFixed(2)}x</Text>
 
       <Slider
         style={{ width: '100%' }}
@@ -138,9 +138,9 @@ export default function Player({ uri }: { uri: string }) {
         maximumValue={2}
         step={0.05}
         value={rate}
-        minimumTrackTintColor="#1DB954"
-        maximumTrackTintColor="#555"
-        thumbTintColor="#1DB954"
+        minimumTrackTintColor="#8B9DC3"
+        maximumTrackTintColor="rgba(255,255,255,0.12)"
+        thumbTintColor="#B8C8E0"
         onSlidingComplete={changeSpeed}
       />
 
@@ -174,62 +174,69 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 12,
-    backgroundColor: '#1a1a1a',
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     gap: 12,
     alignItems: 'center',
   },
   loadingText: {
-    color: '#aaa',
-    fontSize: 15,
+    color: '#888',
+    fontSize: 13,
+    fontStyle: 'italic',
   },
   playBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#1DB954',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(139,157,195,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,157,195,0.35)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   playBtnText: {
-    fontSize: 24,
+    fontSize: 22,
+    color: '#B8C8E0',
   },
   time: {
     textAlign: 'center',
-    fontSize: 14,
-    color: '#ccc',
+    fontSize: 13,
+    color: '#999',
+    letterSpacing: 0.5,
   },
   speedLabel: {
     textAlign: 'center',
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1DB954',
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#B0B0B0',
     marginTop: 4,
+    letterSpacing: 0.5,
   },
   presetRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     flexWrap: 'wrap',
     justifyContent: 'center',
   },
   presetBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 16,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
   presetBtnActive: {
-    backgroundColor: '#1DB954',
-    borderColor: '#1DB954',
+    backgroundColor: 'rgba(139,157,195,0.25)',
+    borderColor: 'rgba(139,157,195,0.4)',
   },
   presetText: {
-    color: '#ccc',
-    fontSize: 13,
-    fontWeight: '600',
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '500',
   },
   presetTextActive: {
-    color: '#000',
+    color: '#C8D6EC',
   },
 });

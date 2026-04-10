@@ -83,7 +83,7 @@ export default function App() {
       >
         <View style={styles.bgOverlay} />
         <View style={styles.container}>
-          <Text style={styles.header}>⚡ Speed Music</Text>
+          <Text style={styles.header}>Speed Music</Text>
 
           <SearchBar query={query} onChangeQuery={setQuery} onSearch={handleSearch} />
 
@@ -93,12 +93,12 @@ export default function App() {
               onPress={() => setShowHistory(!showHistory)}
             >
               <Text style={styles.historyBtnText}>
-                {showHistory ? '✕ Cerrar historial' : '🕒 Historial'}
+                {showHistory ? 'Cerrar historial' : 'Historial'}
               </Text>
             </TouchableOpacity>
           )}
 
-          {loading && <ActivityIndicator size="large" color="#1DB954" />}
+          {loading && <ActivityIndicator size="large" color="#8B9DC3" />}
 
           {showHistory && !selectedTrack && (
             history.length > 0 ? (
@@ -153,28 +153,34 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   header: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1DB954',
+    fontSize: 26,
+    fontWeight: '300',
+    color: '#E8E8E8',
     textAlign: 'center',
+    letterSpacing: 4,
+    textTransform: 'uppercase',
     marginBottom: 8,
   },
   historyBtn: {
     alignSelf: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 20,
+    paddingHorizontal: 24,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#1DB954',
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
   historyBtnText: {
-    color: '#1DB954',
-    fontSize: 14,
+    color: '#B0B0B0',
+    fontSize: 13,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   emptyText: {
-    color: '#888',
+    color: '#666',
     textAlign: 'center',
-    fontSize: 14,
+    fontSize: 13,
     paddingVertical: 20,
+    fontStyle: 'italic',
   },
 });

@@ -39,26 +39,27 @@ const styles = StyleSheet.create({
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
+    padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#222',
-    gap: 12,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    gap: 14,
   },
   thumbnail: {
-    width: 50,
-    height: 50,
-    borderRadius: 6,
+    width: 48,
+    height: 48,
+    borderRadius: 4,
   },
   text: {
     flex: 1,
   },
   title: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
+    color: '#E0E0E0',
+    fontSize: 14,
+    fontWeight: '500',
   },
   artist: {
-    color: '#aaa',
-    fontSize: 13,
+    color: '#888',
+    fontSize: 12,
+    marginTop: 2,
   },
 });

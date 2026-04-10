@@ -35,20 +35,20 @@ export default function TrackDetail({ track, fullAudioUri, downloading, onDownlo
       ) : (
         <>
           <TouchableOpacity
-            style={[styles.downloadBtn, downloading && { opacity: 0.5 }]}
+            style={[styles.downloadBtn, downloading && { opacity: 0.4 }]}
             onPress={onDownload}
             disabled={downloading}
           >
             {downloading ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color="#B8C8E0" size="small" />
             ) : (
-              <Text style={styles.downloadBtnText}>⬇️ Descargar canción completa</Text>
+              <Text style={styles.downloadBtnText}>Descargar canción completa</Text>
             )}
           </TouchableOpacity>
 
           {track.previewUrl && (
             <>
-              <Text style={styles.previewHint}>Preview (30s):</Text>
+              <Text style={styles.previewHint}>Vista previa · 30s</Text>
               <Player uri={track.previewUrl} />
             </>
           )}
@@ -66,12 +66,12 @@ export default function TrackDetail({ track, fullAudioUri, downloading, onDownlo
           style={styles.spotifyBtn}
           onPress={() => Linking.openURL(`https://open.spotify.com/track/${track.id}`)}
         >
-          <Text style={styles.spotifyBtnText}>🎵 Abrir en Spotify</Text>
+          <Text style={styles.spotifyBtnText}>Abrir en Spotify</Text>
         </TouchableOpacity>
       )}
 
       <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-        <Text style={styles.backBtnText}>← Volver</Text>
+        <Text style={styles.backBtnText}>Volver</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -82,69 +82,80 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    gap: 16,
+    gap: 18,
     paddingBottom: 24,
   },
   info: {
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   image: {
-    width: 180,
-    height: 180,
-    borderRadius: 12,
+    width: 200,
+    height: 200,
+    borderRadius: 6,
   },
   title: {
-    fontWeight: 'bold',
+    fontWeight: '500',
     fontSize: 20,
-    color: '#fff',
+    color: '#E8E8E8',
     textAlign: 'center',
+    marginTop: 4,
   },
   artist: {
-    fontSize: 16,
-    color: '#bbb',
+    fontSize: 15,
+    color: '#999',
   },
   album: {
-    fontSize: 13,
-    color: '#777',
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
   },
   downloadBtn: {
     alignSelf: 'center',
-    backgroundColor: '#e67e22',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 20,
+    backgroundColor: 'rgba(139,157,195,0.18)',
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(139,157,195,0.3)',
   },
   downloadBtnText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: 'bold',
+    color: '#B8C8E0',
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
   previewHint: {
-    color: '#888',
-    fontSize: 12,
+    color: '#666',
+    fontSize: 11,
     textAlign: 'center',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   noPreview: {
-    color: '#e74c3c',
+    color: '#666',
     textAlign: 'center',
-    fontSize: 14,
+    fontSize: 13,
     padding: 20,
+    fontStyle: 'italic',
   },
   spotifyBtn: {
     alignSelf: 'center',
-    backgroundColor: '#1DB954',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
+    paddingHorizontal: 22,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   spotifyBtnText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: 'bold',
+    color: '#B0B0B0',
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
   backBtn: {
     alignSelf: 'center',
@@ -152,7 +163,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   backBtnText: {
-    color: '#1DB954',
-    fontSize: 16,
+    color: '#888',
+    fontSize: 14,
+    letterSpacing: 0.5,
   },
 });
