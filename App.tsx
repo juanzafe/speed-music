@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import Player from './src/components/Player';
 import { getSpotifyTrackId } from './src/utils/spotify';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // En producción usa la URL del backend desplegado; en desarrollo usa localhost/IP local
 const RENDER_URL = 'https://speed-music-backend.onrender.com';
@@ -42,11 +43,33 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [fullAudioUri, setFullAudioUri] = useState<string | null>(null);
+  const [history, setHistory] = useState<Track[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
-  // Despertar el backend apenas carga la app
+  // Cargar historial y despertar backend
   useEffect(() => {
     fetch(API_BASE).catch(() => {});
+    loadHistory();
   }, []);
+
+  async function loadHistory() {
+    try {
+      const stored = await AsyncStorage.getItem('songHistory');
+      if (stored) setHistory(JSON.parse(stored));
+    } catch {}
+  }
+
+  async function addToHistory(track: Track) {
+    try {
+      const stored = await AsyncStorage.getItem('songHistory');
+      let list: Track[] = stored ? JSON.parse(stored) : [];
+      list = list.filter(t => t.id !== track.id);
+      list.unshift(track);
+      if (list.length > 50) list = list.slice(0, 50);
+      await AsyncStorage.setItem('songHistory', JSON.stringify(list));
+      setHistory(list);
+    } catch {}
+  }
 
   async function handleSearch() {
     const trimmed = query.trim();
@@ -193,6 +216,9 @@ export default function App() {
       // Strategy: try server download + stream proxy in parallel
       // Server download: yt-dlp (works on residential IPs)
       // Stream proxy: Piped via backend proxy (works from datacenter)
+      // Save to history
+      if (selectedTrack) addToHistory(selectedTrack);
+
       const serverPromise = tryServerDownload(trackId);
       const streamProxyPromise = tryStreamProxy(trackId);
 
@@ -351,10 +377,36 @@ export default function App() {
           </TouchableOpacity>
         </View>
 
+        {/* Botón historial */}
+        {!selectedTrack && (
+          <TouchableOpacity
+            style={styles.historyBtn}
+            onPress={() => setShowHistory(!showHistory)}
+          >
+            <Text style={styles.historyBtnText}>
+              {showHistory ? '✕ Cerrar historial' : '🕒 Historial'}
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {loading && <ActivityIndicator size="large" color="#1DB954" />}
 
+        {/* Historial */}
+        {showHistory && !selectedTrack && (
+          history.length > 0 ? (
+            <FlatList
+              data={history}
+              keyExtractor={(item, idx) => `${item.id}-${idx}`}
+              renderItem={renderTrackItem}
+              style={styles.resultList}
+            />
+          ) : (
+            <Text style={styles.noHistoryText}>No hay canciones en el historial</Text>
+          )
+        )}
+
         {/* Resultados de búsqueda */}
-        {results.length > 0 && (
+        {results.length > 0 && !showHistory && (
           <FlatList
             data={results}
             keyExtractor={(item) => item.id}
@@ -616,5 +668,23 @@ const styles = StyleSheet.create({
     color: '#888',
     fontSize: 12,
     textAlign: 'center',
+  },
+  historyBtn: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#1DB954',
+  },
+  historyBtnText: {
+    color: '#1DB954',
+    fontSize: 14,
+  },
+  noHistoryText: {
+    color: '#888',
+    textAlign: 'center',
+    fontSize: 14,
+    paddingVertical: 20,
   },
 });
