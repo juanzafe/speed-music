@@ -63,4 +63,4 @@ Most music apps force you to use separate software just to change playback speed
 
 ---
 
-## ✨ Developed by [Your Name] – Unlimited music, instantly.
+## ✨ Developed by Juan Zamudio – Unlimited music, instantly.
