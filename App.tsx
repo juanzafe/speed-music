@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   ImageBackground,
   StyleSheet,
   TouchableOpacity,
@@ -10,16 +9,17 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
-  KeyboardAvoidingView,
-  ScrollView,
 } from 'react-native';
 import SearchBar from './src/components/SearchBar';
 import TrackList from './src/components/TrackList';
 import TrackDetail from './src/components/TrackDetail';
+import LibraryTab from './src/components/LibraryTab';
+import LoginScreen from './src/components/LoginScreen';
 import { useHistory } from './src/hooks/useHistory';
 import { useDownload } from './src/hooks/useDownload';
 import { useSavedSongs } from './src/hooks/useSavedSongs';
 import { useFavorites } from './src/hooks/useFavorites';
+import { useFolders } from './src/hooks/useFolders';
 import { useAuth } from './src/hooks/useAuth';
 import { wakeBackend, searchTracks, getTrackById } from './src/api';
 import { getSpotifyTrackId } from './src/utils/spotify';
@@ -39,8 +39,19 @@ export default function App() {
   const { downloading, fullAudioUri, loadedFromDisk, downloadFull, reset: resetDownload } = useDownload();
   const { savedSongs, isSaved, saveSong, removeSong, loadSavedAudio } = useSavedSongs();
   const { favorites, isFavorite, toggleFavorite } = useFavorites(user);
+  const { folders, songFolders, createFolder, deleteFolder, assignToFolder } = useFolders();
+
+  const autoLoadedRef = useRef<string | null>(null);
+  const [autoPlay, setAutoPlay] = useState(false);
 
   useEffect(() => { wakeBackend(); }, []);
+
+  useEffect(() => {
+    if (selectedTrack && isSaved(selectedTrack.id) && !fullAudioUri && !downloading && autoLoadedRef.current !== selectedTrack.id) {
+      autoLoadedRef.current = selectedTrack.id;
+      handleDownload(false);
+    }
+  }, [selectedTrack?.id]);
 
   async function handleSearch() {
     const trimmed = query.trim();
@@ -75,6 +86,7 @@ export default function App() {
   function handleBack() {
     setSelectedTrack(null);
     resetDownload();
+    autoLoadedRef.current = null;
   }
 
   function handleDownload(saveToDisk: boolean) {
@@ -95,6 +107,34 @@ export default function App() {
   function handleToggleFavorite() {
     if (!selectedTrack) return;
     toggleFavorite(selectedTrack);
+  }
+
+  function switchTab(tab: Tab) {
+    setActiveTab(tab);
+    setSelectedTrack(null);
+    resetDownload();
+  }
+
+  function getCurrentTrackList(): Track[] {
+    switch (activeTab) {
+      case 'search': return results;
+      case 'library': return savedSongs;
+      case 'history': return history;
+      case 'favorites': return favorites;
+      default: return [];
+    }
+  }
+
+  function handleNextTrack() {
+    if (!selectedTrack) return;
+    const list = getCurrentTrackList();
+    const idx = list.findIndex(t => t.id === selectedTrack.id);
+    if (idx >= 0 && idx < list.length - 1) {
+      const next = list[idx + 1];
+      setSelectedTrack(next);
+      resetDownload();
+      autoLoadedRef.current = null;
+    }
   }
 
   const showContent = !selectedTrack && !loading;
@@ -148,11 +188,15 @@ export default function App() {
           )}
 
           {showContent && activeTab === 'library' && (
-            savedSongs.length > 0 ? (
-              <TrackList tracks={savedSongs} onSelect={selectTrack} keyPrefix="lib-" />
-            ) : (
-              <Text style={styles.emptyText}>No hay canciones guardadas en disco</Text>
-            )
+            <LibraryTab
+              savedSongs={savedSongs}
+              folders={folders}
+              songFolders={songFolders}
+              onSelect={selectTrack}
+              createFolder={createFolder}
+              deleteFolder={deleteFolder}
+              assignToFolder={assignToFolder}
+            />
           )}
 
           {showContent && activeTab === 'favorites' && (
@@ -175,35 +219,29 @@ export default function App() {
               onRemoveFromDisk={handleRemoveFromDisk}
               isFavorite={isFavorite(selectedTrack.id)}
               onToggleFavorite={handleToggleFavorite}
+              autoPlay={autoPlay}
+              onAutoPlayToggle={() => setAutoPlay(p => !p)}
+              onNextTrack={handleNextTrack}
             />
           )}
         </View>
 
         <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.tabBtn}
-            onPress={() => { setActiveTab('library'); setSelectedTrack(null); resetDownload(); }}
-          >
+          <TouchableOpacity style={styles.tabBtn} onPress={() => switchTab('library')}>
             <Text style={styles.tabIcon}>💾</Text>
             <Text style={[styles.tabLabel, activeTab === 'library' && styles.tabLabelActive]}>
               Biblioteca
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.tabBtn}
-            onPress={() => { setActiveTab('history'); setSelectedTrack(null); resetDownload(); }}
-          >
+          <TouchableOpacity style={styles.tabBtn} onPress={() => switchTab('history')}>
             <Text style={styles.tabIcon}>🕐</Text>
             <Text style={[styles.tabLabel, activeTab === 'history' && styles.tabLabelActive]}>
               Historial
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.tabBtn}
-            onPress={() => { setActiveTab('favorites'); setSelectedTrack(null); resetDownload(); }}
-          >
+          <TouchableOpacity style={styles.tabBtn} onPress={() => switchTab('favorites')}>
             <Text style={styles.tabIcon}>❤️</Text>
             <Text style={[styles.tabLabel, activeTab === 'favorites' && styles.tabLabelActive]}>
               Favoritos
@@ -307,213 +345,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#121212',
-  },
-});
-
-/* ── Login / Register Screen ── */
-
-function LoginScreen({ onLogin, onRegister, onGoogle }: {
-  onLogin: (email: string, pw: string) => Promise<void>;
-  onRegister: (email: string, pw: string) => Promise<void>;
-  onGoogle: () => Promise<void>;
-}) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isRegister, setIsRegister] = useState(false);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  async function handleSubmit() {
-    if (!email.trim() || !password.trim()) return;
-    setBusy(true);
-    setError('');
-    try {
-      if (isRegister) {
-        await onRegister(email.trim(), password);
-      } else {
-        await onLogin(email.trim(), password);
-      }
-    } catch (e: any) {
-      const code = e?.code ?? '';
-      if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') setError('Credenciales incorrectas');
-      else if (code === 'auth/user-not-found') setError('No existe esa cuenta');
-      else if (code === 'auth/email-already-in-use') setError('Ese email ya está registrado');
-      else if (code === 'auth/weak-password') setError('La contraseña debe tener al menos 6 caracteres');
-      else if (code === 'auth/invalid-email') setError('Email no válido');
-      else setError('Error de autenticación');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <SafeAreaView style={loginStyles.safe}>
-      <StatusBar barStyle="light-content" />
-      <KeyboardAvoidingView
-        style={loginStyles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView contentContainerStyle={loginStyles.scroll} keyboardShouldPersistTaps="handled">
-          <Text style={loginStyles.title}>Speed Music</Text>
-          <Text style={loginStyles.subtitle}>
-            {isRegister ? 'Crear cuenta' : 'Iniciar sesión'}
-          </Text>
-
-          <TextInput
-            style={loginStyles.input}
-            placeholder="Email"
-            placeholderTextColor="#666"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={email}
-            onChangeText={setEmail}
-          />
-          <TextInput
-            style={loginStyles.input}
-            placeholder="Contraseña"
-            placeholderTextColor="#666"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
-
-          {error ? <Text style={loginStyles.error}>{error}</Text> : null}
-
-          <TouchableOpacity
-            style={[loginStyles.btn, busy && { opacity: 0.5 }]}
-            onPress={handleSubmit}
-            disabled={busy}
-          >
-            {busy ? (
-              <ActivityIndicator color="#B8C8E0" size="small" />
-            ) : (
-              <Text style={loginStyles.btnText}>
-                {isRegister ? 'Registrarse' : 'Entrar'}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          <View style={loginStyles.divider}>
-            <View style={loginStyles.dividerLine} />
-            <Text style={loginStyles.dividerText}>o</Text>
-            <View style={loginStyles.dividerLine} />
-          </View>
-
-          <TouchableOpacity
-            style={loginStyles.googleBtn}
-            onPress={async () => {
-              setBusy(true);
-              setError('');
-              try { await onGoogle(); } catch { setError('Error al iniciar con Google'); }
-              finally { setBusy(false); }
-            }}
-            disabled={busy}
-          >
-            <Text style={loginStyles.googleBtnText}>Continuar con Google</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => { setIsRegister(!isRegister); setError(''); }}>
-            <Text style={loginStyles.toggle}>
-              {isRegister ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
-}
-
-const loginStyles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#121212',
-  },
-  flex: {
-    flex: 1,
-  },
-  scroll: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 30,
-    gap: 16,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    letterSpacing: 6,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#999',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  input: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 8,
-    padding: 14,
-    color: '#E8E8E8',
-    fontSize: 15,
-  },
-  btn: {
-    backgroundColor: 'rgba(139,157,195,0.2)',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(139,157,195,0.35)',
-    marginTop: 4,
-  },
-  btnText: {
-    color: '#B8C8E0',
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  toggle: {
-    color: '#8B9DC3',
-    textAlign: 'center',
-    fontSize: 13,
-    marginTop: 8,
-  },
-  error: {
-    color: '#E57373',
-    textAlign: 'center',
-    fontSize: 13,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  dividerText: {
-    color: '#666',
-    marginHorizontal: 12,
-    fontSize: 13,
-  },
-  googleBtn: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-  },
-  googleBtnText: {
-    color: '#E8E8E8',
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: 0.3,
   },
 });

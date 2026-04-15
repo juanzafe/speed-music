@@ -17,12 +17,16 @@ interface Props {
   onRemoveFromDisk?: () => void;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
+  autoPlay?: boolean;
+  onAutoPlayToggle?: () => void;
+  onNextTrack?: () => void;
 }
 
 export default function TrackDetail({
   track, fullAudioUri, downloading, onDownload, onBack,
   isSavedOnDisk, loadedFromDisk, onRemoveFromDisk,
   isFavorite, onToggleFavorite,
+  autoPlay, onAutoPlayToggle, onNextTrack,
 }: Props) {
   const [showModal, setShowModal] = useState(false);
 
@@ -61,7 +65,12 @@ export default function TrackDetail({
 
       {fullAudioUri ? (
         <>
-          <Player uri={fullAudioUri} />
+          <Player
+            uri={fullAudioUri}
+            autoPlay={autoPlay}
+            onAutoPlayToggle={onAutoPlayToggle}
+            onTrackEnd={onNextTrack}
+          />
 
           {loadedFromDisk && (
             <Text style={styles.diskHint}>Cargada desde disco</Text>
@@ -73,6 +82,11 @@ export default function TrackDetail({
             </TouchableOpacity>
           )}
         </>
+      ) : isSavedOnDisk ? (
+        <View style={styles.loadingDisk}>
+          <ActivityIndicator color="#B8C8E0" size="small" />
+          <Text style={styles.loadingDiskText}>Cargando desde disco…</Text>
+        </View>
       ) : (
         <>
           <TouchableOpacity
@@ -270,6 +284,17 @@ const styles = StyleSheet.create({
     color: '#E57373',
     fontSize: 13,
     fontWeight: '500',
+    letterSpacing: 0.3,
+  },
+  loadingDisk: {
+    alignSelf: 'center',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 20,
+  },
+  loadingDiskText: {
+    color: '#999',
+    fontSize: 13,
     letterSpacing: 0.3,
   },
   modalOverlay: {

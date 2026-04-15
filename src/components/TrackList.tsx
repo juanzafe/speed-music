@@ -5,9 +5,10 @@ interface Props {
   tracks: Track[];
   onSelect: (track: Track) => void;
   keyPrefix?: string;
+  onFolderPress?: (track: Track) => void;
 }
 
-export default function TrackList({ tracks, onSelect, keyPrefix = '' }: Props) {
+export default function TrackList({ tracks, onSelect, keyPrefix = '', onFolderPress }: Props) {
   return (
     <FlatList
       data={tracks}
@@ -25,6 +26,15 @@ export default function TrackList({ tracks, onSelect, keyPrefix = '' }: Props) {
             <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
             <Text style={styles.artist} numberOfLines={1}>{item.artist}</Text>
           </View>
+          {onFolderPress && (
+            <TouchableOpacity
+              style={styles.folderBtn}
+              onPress={() => onFolderPress(item)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.folderBtnText}>📁</Text>
+            </TouchableOpacity>
+          )}
         </TouchableOpacity>
       )}
       style={styles.list}
@@ -61,5 +71,11 @@ const styles = StyleSheet.create({
     color: '#888',
     fontSize: 12,
     marginTop: 2,
+  },
+  folderBtn: {
+    padding: 6,
+  },
+  folderBtnText: {
+    fontSize: 18,
   },
 });

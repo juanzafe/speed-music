@@ -5,13 +5,25 @@ import Slider from '@react-native-community/slider';
 
 const SPEED_PRESETS = [0.5, 0.75, 0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.2, 1.25, 1.5, 2];
 
-export default function Player({ uri }: { uri: string }) {
+interface Props {
+  uri: string;
+  autoPlay?: boolean;
+  onAutoPlayToggle?: () => void;
+  onTrackEnd?: () => void;
+}
+
+export default function Player({ uri, autoPlay, onAutoPlayToggle, onTrackEnd }: Props) {
   const soundRef = useRef<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [rate, setRate] = useState(1);
   const [positionMs, setPositionMs] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  const onTrackEndRef = useRef(onTrackEnd);
+  const autoPlayRef = useRef(autoPlay);
+
+  useEffect(() => { onTrackEndRef.current = onTrackEnd; }, [onTrackEnd]);
+  useEffect(() => { autoPlayRef.current = autoPlay; }, [autoPlay]);
 
   // Cargar automáticamente al recibir una nueva uri
   useEffect(() => {
@@ -41,6 +53,9 @@ export default function Player({ uri }: { uri: string }) {
             setIsPlaying(status.isPlaying);
             if (status.didJustFinish) {
               setIsPlaying(false);
+              if (autoPlayRef.current && onTrackEndRef.current) {
+                onTrackEndRef.current();
+              }
             }
           }
         }
@@ -108,10 +123,22 @@ export default function Player({ uri }: { uri: string }) {
 
   return (
     <View style={styles.container}>
-      {/* Play/Pause */}
-      <TouchableOpacity style={styles.playBtn} onPress={togglePlay}>
-        <Text style={styles.playBtnText}>{isPlaying ? '⏸' : '▶'}</Text>
-      </TouchableOpacity>
+      {/* Play/Pause + Autoplay */}
+      <View style={styles.controlsRow}>
+        <TouchableOpacity style={styles.playBtn} onPress={togglePlay}>
+          <Text style={styles.playBtnText}>{isPlaying ? '⏸' : '▶'}</Text>
+        </TouchableOpacity>
+
+        {onAutoPlayToggle && (
+          <TouchableOpacity
+            style={[styles.autoPlayBtn, autoPlay && styles.autoPlayBtnActive]}
+            onPress={onAutoPlayToggle}
+          >
+            <Text style={[styles.autoPlayIcon, autoPlay && styles.autoPlayIconActive]}>⏭</Text>
+            <Text style={[styles.autoPlayLabel, autoPlay && styles.autoPlayLabelActive]}>Auto</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* Progreso */}
       <Text style={styles.time}>
@@ -185,6 +212,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontStyle: 'italic',
   },
+  controlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
   playBtn: {
     width: 52,
     height: 52,
@@ -197,6 +229,36 @@ const styles = StyleSheet.create({
   },
   playBtnText: {
     fontSize: 22,
+    color: '#B8C8E0',
+  },
+  autoPlayBtn: {
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  autoPlayBtnActive: {
+    backgroundColor: 'rgba(139,157,195,0.18)',
+    borderColor: 'rgba(139,157,195,0.35)',
+  },
+  autoPlayIcon: {
+    fontSize: 18,
+    color: '#666',
+  },
+  autoPlayIconActive: {
+    color: '#B8C8E0',
+  },
+  autoPlayLabel: {
+    fontSize: 9,
+    color: '#666',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  autoPlayLabelActive: {
     color: '#B8C8E0',
   },
   time: {
