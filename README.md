@@ -38,14 +38,40 @@ Most music apps force you to use separate software just to change playback speed
 
 ---
 
+
 ## 🛠️ Tech Stack
 
 - **Frontend:** React Native + TypeScript (Expo)
-- **Backend:** Node.js + TypeScript (Express)
+- **Backend:** Node.js + TypeScript (Express) ([music-backend](../music-backend))
 - **Database & Auth:** Firebase (Firestore, Authentication)
 - **Integrations:** Spotify API
 - **Visualizations:** Recharts for usage and download stats
 - **Styling:** Tailwind CSS (mobile-first)
+
+---
+
+## 📂 Backend Folder: `music-backend`
+
+This folder contains the backend API for Speed Music. It is built with Node.js, Express, and TypeScript. Its main responsibilities are:
+
+- Handling music download requests
+- Managing communication with the Spotify API
+- Serving audio files to the frontend
+- Providing endpoints for user actions (downloads, favorites, etc.)
+
+**Main dependencies:**
+
+- express
+- axios
+- cors
+- dotenv
+- typescript
+
+**Dev scripts:**
+
+- `npm run dev` — Start backend in development mode
+- `npm run build` — Compile TypeScript
+- `npm start` — Run compiled server
 
 ---
 
